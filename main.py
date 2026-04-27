@@ -1,4 +1,6 @@
 from flask import Flask
+import flask.cli
+import logging
 from flask import request
 import os
 import hashlib
@@ -9,7 +11,15 @@ from threading import Lock
 import threading
 import sys
 
+# Disable Flask banner
+cli = sys.modules['flask.cli']
+cli.show_server_banner = lambda *x: None
+
 app = Flask(__name__)
+
+# Disable flask logging info
+log = logging.getLogger('werkzeug')
+log.disabled = True
 
 def hash_clip(data: str) -> str:
     '''
@@ -65,6 +75,9 @@ def client(remote_ip: str, remote_port: int) -> None:
     text = pyperclip.paste()
     last_hash = hash_clip(text)
 
+    # Exponential back off
+    connection_attempts = 0
+
     while True:
         # Clipbaord deduplication
         text = pyperclip.paste()
@@ -79,12 +92,16 @@ def client(remote_ip: str, remote_port: int) -> None:
                 }, timeout=3)
 
                 if r.status_code == 200:
+                    connection_attempts = 0
                     with lock:
                         last_hash = clip_hash
                 elif r.status_code != 200:
                     print('Server returned status code', r.status_code)
                     break
             except requests.exceptions.Timeout:
+                connection_attempts += 1
+                # Sleep for a maximum of 15 seconds between retries
+                time.sleep(max(connection_attempts * 3, 15))
                 continue
             
         time.sleep(0.5)
