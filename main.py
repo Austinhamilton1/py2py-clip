@@ -70,19 +70,22 @@ def client(remote_ip: str, remote_port: int) -> None:
         text = pyperclip.paste()
         clip_hash = hash_clip(data=text)
         if last_hash is None or clip_hash != last_hash:
-            # Send the clipboard data to the remote server
-            r = requests.post(f'http://{remote_ip}:{remote_port}/clipboard/', headers={
-                'XAuth': os.getenv('P2PC_TOKEN'),
-            }, data={
-                'text': text,
-            })
+            try:
+                # Send the clipboard data to the remote server
+                r = requests.post(f'http://{remote_ip}:{remote_port}/clipboard/', headers={
+                    'XAuth': os.getenv('P2PC_TOKEN'),
+                }, data={
+                    'text': text,
+                }, timeout=3)
 
-            if r.status_code == 200:
-                with lock:
-                    last_hash = clip_hash
-            elif r.status_code != 200:
-                print('Server returned status code', r.status_code)
-                break
+                if r.status_code == 200:
+                    with lock:
+                        last_hash = clip_hash
+                elif r.status_code != 200:
+                    print('Server returned status code', r.status_code)
+                    break
+            except requests.exceptions.Timeout:
+                continue
             
         time.sleep(0.5)
 
