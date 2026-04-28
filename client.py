@@ -1,4 +1,3 @@
-import time
 import json
 import asyncio
 import uuid
@@ -76,16 +75,6 @@ async def watcher(conn):
     global client_id
     global last_hash
     global lock
-
-    # Initialize last hash so that current clipboard is not flagged
-    async with lock:
-        img = ImageGrab.grabclipboard()
-        if isinstance(img, Image.Image):
-            buf = image_to_bytes(img)
-            last_hash = hash_clip('image', buf)
-        else:
-            data = pyperclip.paste()
-            last_hash = hash_clip('text', data)
     
     token = os.getenv('P2PC_TOKEN')
 
@@ -109,14 +98,15 @@ async def watcher(conn):
                     await asyncio.sleep(0.5)
                     continue
 
-                await conn.send(json.dumps({
-                    'XAuth': token,
-                    'origin': client_id,
-                    'hash': clip_hash,
-                    'datatype': datatype,
-                    'data': data,
-                }))
+            await conn.send(json.dumps({
+                'XAuth': token,
+                'origin': client_id,
+                'hash': clip_hash,
+                'datatype': datatype,
+                'data': data,
+            }))
 
+            async with lock:
                 last_hash = clip_hash
 
             await asyncio.sleep(0.5)

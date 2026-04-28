@@ -19,7 +19,7 @@ async def listen(conn):
     # Update the client lookup (keyed by client UUID)
     async with client_lock:
         clients.add(conn)
-        
+
     try:
         while True:
             # Receive incoming message
@@ -41,8 +41,6 @@ async def listen(conn):
             # If null data, ignore message
             if not origin or not new_hash or not datatype or not raw_data:
                 continue 
-            
-            
 
             should_broadcast = False
 
