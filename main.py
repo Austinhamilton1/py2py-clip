@@ -16,15 +16,15 @@ import threading
 import sys
 
 # Disable Flask banner
-# cli = sys.modules['flask.cli']
-# cli.show_server_banner = lambda *x: None
+cli = sys.modules['flask.cli']
+cli.show_server_banner = lambda *x: None
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # Disable flask logging info
-# log = logging.getLogger('werkzeug')
-# log.disabled = True
+log = logging.getLogger('werkzeug')
+log.disabled = True
 
 def hash_clip(datatype: str, data: any) -> str:
     '''
