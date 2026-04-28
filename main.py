@@ -53,6 +53,8 @@ def image_to_bytes(img: Image.Image) -> bytes:
     Returns:
         bytes: Raw bytes of the image
     '''
+    img = img.convert('RGB')
+    img.thumbnail((1920, 1080))
     buf = io.BytesIO()
     img.save(buf, format='JPEG', quality=85)
     return buf.getvalue()
@@ -139,10 +141,8 @@ def client(remote_ip: str, remote_port: int) -> None:
     '''
     # Initialize clipboard hash to account for current clipboard
     global last_hash
-    MAX_SIZE = (1920, 1080)
     img = ImageGrab.grabclipboard()
     if img:
-        img.thumbnail(MAX_SIZE)
         buf = image_to_bytes(img)
         data = bytes_to_http(buf)
         datatype = 'image'
@@ -159,7 +159,6 @@ def client(remote_ip: str, remote_port: int) -> None:
         # Grab clipboard data
         img = ImageGrab.grabclipboard()
         if img:
-            img.thumbnail(MAX_SIZE)
             buf = image_to_bytes(img)
             data = bytes_to_http(buf)
             datatype = 'image'
