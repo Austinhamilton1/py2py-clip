@@ -2,9 +2,9 @@ import json
 import asyncio
 import uuid
 import pyperclip
-import pyperclipimg
 import os
 import sys
+import platform
 
 from websockets.asyncio.client import connect
 from asyncio.locks import Lock
@@ -64,7 +64,15 @@ async def receiver(conn):
 
             # Copy data to clipboard
             if datatype == 'image':
-                pyperclipimg.copy(data)
+                print('image sent')
+                print(last_hash, new_hash)
+                if platform.system() == 'Linux':
+                    import subprocess
+                    buf = image_to_bytes(data)
+                    subprocess.run(
+                        ['xclip', '-selection', 'clipboard', '-t', 'image/jpeg', '-i'],
+                        input=buf
+                    )
             else:
                 pyperclip.copy(data)
     except asyncio.CancelledError:
