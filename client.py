@@ -36,12 +36,11 @@ async def receiver(conn):
 
             # Receive message meta data
             origin = packet.get('origin')
-            new_hash = packet.get('hash')
             datatype = packet.get('datatype')
             data = packet.get('data')
 
             # If null data, ignore message
-            if not origin or not new_hash or not datatype or not data:
+            if not origin or not datatype or not data:
                 continue
 
             # If origin = this machine, ignore message
@@ -50,10 +49,13 @@ async def receiver(conn):
 
             if datatype == 'image':
                 # Parse image from packet
+                new_hash = hash_clip('image', data)
                 data = http_to_image(data)
             elif datatype == 'text':
+                new_hash = hash_clip('text', data)
                 pass
             else:
+                new_hash = None
                 continue
 
             # Deduplicate data
@@ -113,7 +115,6 @@ async def watcher(conn):
                 await conn.send(json.dumps({
                     'XAuth': token,
                     'origin': client_id,
-                    'hash': clip_hash,
                     'datatype': datatype,
                     'data': data,
                 }))

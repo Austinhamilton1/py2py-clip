@@ -34,13 +34,18 @@ async def listen(conn):
             
             # Receive message meta data
             origin = packet.get('origin')
-            new_hash = packet.get('hash')
             datatype = packet.get('datatype')
             raw_data = packet.get('data')
 
             # If null data, ignore message
-            if not origin or not new_hash or not datatype or not raw_data:
+            if not origin or not datatype or not raw_data:
                 continue 
+
+            new_hash = None
+            if datatype == 'image':
+                new_hash = hash_clip('image', image_to_bytes(http_to_image(raw_data)))
+            else:
+                new_hash = hash_clip('text', raw_data)
 
             should_broadcast = False
 
