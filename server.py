@@ -16,7 +16,10 @@ client_lock = Lock()
 async def listen(conn):
     '''Listen for incoming connections and manage them'''
     global last_hash
-
+    # Update the client lookup (keyed by client UUID)
+    async with client_lock:
+        clients.add(conn)
+        
     try:
         while True:
             # Receive incoming message
@@ -39,9 +42,7 @@ async def listen(conn):
             if not origin or not new_hash or not datatype or not raw_data:
                 continue 
             
-            # Update the client lookup (keyed by client UUID)
-            async with client_lock:
-                clients.add(conn)
+            
 
             should_broadcast = False
 
