@@ -31,8 +31,6 @@ def image_to_bytes(img: Image.Image) -> bytes:
     Returns:
         bytes: Raw bytes of the image
     '''
-    img = img.convert('RGB')
-    img.thumbnail((1920, 1080))
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return buf.getvalue()
