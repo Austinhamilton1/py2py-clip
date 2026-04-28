@@ -66,7 +66,6 @@ async def receiver(conn):
 
             # Copy data to clipboard
             if datatype == 'image':
-                print('image received')
                 pyperclipimg.copy(data)
             else:
                 pyperclip.copy(data)
