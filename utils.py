@@ -34,7 +34,7 @@ def image_to_bytes(img: Image.Image) -> bytes:
     img = img.convert('RGB')
     img.thumbnail((1920, 1080))
     buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=85)
+    img.save(buf, format='PNG')
     return buf.getvalue()
 
 def bytes_to_http(img_bytes: bytes) -> str:
