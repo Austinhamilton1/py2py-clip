@@ -20,6 +20,7 @@ import sys
 # cli.show_server_banner = lambda *x: None
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # Disable flask logging info
 # log = logging.getLogger('werkzeug')
@@ -53,7 +54,7 @@ def image_to_bytes(img: Image.Image) -> bytes:
         bytes: Raw bytes of the image
     '''
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    img.save(buf, format='JPEG', quality=85)
     return buf.getvalue()
 
 def bytes_to_http(img_bytes: bytes) -> str:
@@ -94,8 +95,8 @@ def listen():
     
     # Receive incoming dadta
     global last_hash
-    datatype = request.form.get('type')
-    data = request.form.get('data')
+    datatype = request.json.get('type')
+    data = request.json.get('data')
     if not datatype or not data:
         return 'Invalid data request', 400
     
@@ -155,6 +156,8 @@ def client(remote_ip: str, remote_port: int) -> None:
     while True:
         # Grab clipboard data
         img = ImageGrab.grabclipboard()
+        MAX_SIZE = (1920, 1080)
+        img.thumbnail(MAX_SIZE)
         if img:
             buf = image_to_bytes(img)
             data = bytes_to_http(buf)
@@ -171,7 +174,7 @@ def client(remote_ip: str, remote_port: int) -> None:
                 # Send the clipboard data to the remote server
                 r = requests.post(f'http://{remote_ip}:{remote_port}/clipboard/', headers={
                     'XAuth': os.getenv('P2PC_TOKEN'),
-                }, data={
+                }, json={
                     'type': datatype,
                     'data': data,
                 }, timeout=3)
@@ -186,7 +189,7 @@ def client(remote_ip: str, remote_port: int) -> None:
             except requests.exceptions.Timeout:
                 connection_attempts += 1
                 # Sleep for a maximum of 15 seconds between retries
-                time.sleep(max(connection_attempts * 3, 15))
+                time.sleep(min(connection_attempts * 3, 15))
                 continue
             
         time.sleep(0.5)
