@@ -59,6 +59,8 @@ async def listen(conn):
             
             dead = []
             for ws in conns:
+                if ws is conn:
+                    continue
                 try:
                     await ws.send(json.dumps({
                         'XAuth': truth,

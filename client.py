@@ -58,7 +58,7 @@ async def receiver(conn):
 
             # Deduplicate data
             async with lock:
-                if new_hash and last_hash and new_hash == last_hash:
+                if new_hash == last_hash:
                     continue
                 last_hash = new_hash
 
@@ -75,17 +75,16 @@ async def watcher(conn):
     '''Watches local clipboard for changes.'''
     global client_id
     global last_hash
-    global lock
 
     # Initialize last hash so that current clipboard is not flagged
     async with lock:
-        img = ImageGrab.grabclipboard()
-        if isinstance(img, Image.Image):
-            buf = image_to_bytes(img)
-            last_hash = hash_clip('image', buf)
+        init_img = ImageGrab.grabclipboard()
+        if isinstance(init_img, Image.Image):
+            init_buf = image_to_bytes(init_img)
+            last_hash = hash_clip('image', init_buf)
         else:
-            data = pyperclip.paste()
-            last_hash = hash_clip('text', data)
+            init_data = pyperclip.paste()
+            last_hash = hash_clip('text', init_data)
     
     token = os.getenv('P2PC_TOKEN')
 
@@ -104,11 +103,13 @@ async def watcher(conn):
                 clip_hash = hash_clip('text', data)
 
             # Data deduplication
+            should_send = False
             async with lock:
-                if last_hash is not None and clip_hash == last_hash:
-                    await asyncio.sleep(0.5)
-                    continue
+                if last_hash != clip_hash:
+                    should_send = True
+                    last_hash = clip_hash
 
+            if should_send:
                 await conn.send(json.dumps({
                     'XAuth': token,
                     'origin': client_id,
@@ -116,8 +117,6 @@ async def watcher(conn):
                     'datatype': datatype,
                     'data': data,
                 }))
-
-                last_hash = clip_hash
 
             await asyncio.sleep(0.5)
 
