@@ -1,5 +1,4 @@
-Flask
 pyperclip
 pyperclipimg
-requests
 pillow
+websockets
