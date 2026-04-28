@@ -49,8 +49,8 @@ async def receiver(conn):
 
             if datatype == 'image':
                 # Parse image from packet
-                new_hash = hash_clip('image', data)
                 data = http_to_image(data)
+                new_hash = hash_clip('image', image_to_bytes(data))
             elif datatype == 'text':
                 new_hash = hash_clip('text', data)
                 pass
