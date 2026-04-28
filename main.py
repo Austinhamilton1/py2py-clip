@@ -139,8 +139,10 @@ def client(remote_ip: str, remote_port: int) -> None:
     '''
     # Initialize clipboard hash to account for current clipboard
     global last_hash
+    MAX_SIZE = (1920, 1080)
     img = ImageGrab.grabclipboard()
     if img:
+        img.thumbnail(MAX_SIZE)
         buf = image_to_bytes(img)
         data = bytes_to_http(buf)
         datatype = 'image'
@@ -156,9 +158,8 @@ def client(remote_ip: str, remote_port: int) -> None:
     while True:
         # Grab clipboard data
         img = ImageGrab.grabclipboard()
-        MAX_SIZE = (1920, 1080)
-        img.thumbnail(MAX_SIZE)
         if img:
+            img.thumbnail(MAX_SIZE)
             buf = image_to_bytes(img)
             data = bytes_to_http(buf)
             datatype = 'image'
