@@ -2,9 +2,13 @@ from flask import Flask
 import flask.cli
 import logging
 from flask import request
+import io
+import base64
+from PIL import Image, ImageGrab
 import os
 import hashlib
 import pyperclip
+import pyperclipimg
 import time 
 import requests
 from threading import Lock
@@ -12,26 +16,70 @@ import threading
 import sys
 
 # Disable Flask banner
-cli = sys.modules['flask.cli']
-cli.show_server_banner = lambda *x: None
+# cli = sys.modules['flask.cli']
+# cli.show_server_banner = lambda *x: None
 
 app = Flask(__name__)
 
 # Disable flask logging info
-log = logging.getLogger('werkzeug')
-log.disabled = True
+# log = logging.getLogger('werkzeug')
+# log.disabled = True
 
-def hash_clip(data: str) -> str:
+def hash_clip(datatype: str, data: any) -> str:
     '''
     Hash a clipboard entry.
 
     Args:
-        data (str): Clipboard data to hash.
+        datatype (str): 'image' | 'text'
+        data (any): Clipboard data to hash.
 
     Returns:
         str: SHA256 hex digest of data.
     '''
-    return hashlib.sha256(data.encode()).hexdigest()
+    if datatype == 'image':
+        return hashlib.sha256(data).hexdigest()
+    elif datatype == 'text':
+        return hashlib.sha256(data.encode()).hexdigest()
+    
+    raise ValueError(f"Data type must be 'image' or 'text' not '{datatype}'")
+
+def image_to_bytes(img: Image.Image) -> bytes:
+    '''
+    Convert an image to a byte array.
+
+    Args:
+        img (Image.Image): Image to convert.
+    Returns:
+        bytes: Raw bytes of the image
+    '''
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue()
+
+def bytes_to_http(img_bytes: bytes) -> str:
+    '''
+    Convert an image to base64 encoded string
+    object for serialization over network.
+
+    Args:
+        img_bytes (bytes): Image to serialize.
+    Returns:
+        str - Base64 encoded string of bytes
+    '''
+    return base64.b64encode(img_bytes).decode()
+
+def http_to_image(img_str: str) -> Image.Image:
+    '''
+    Convert a base64 encoded string object to
+    image for deserialization over network.
+
+    Args:
+        img_str (str): Base64 encoded image string.
+    Returns:
+        Image.Image - Deserialized image.
+    '''
+    raw = base64.b64decode(img_str)
+    return Image.open(io.BytesIO(raw))
 
 last_hash = None
 lock = Lock()
@@ -44,19 +92,37 @@ def listen():
     if token != truth:
         return 'Invalid token', 403
     
-    # Clipboard deduplication
+    # Receive incoming dadta
     global last_hash
-    text = request.form.get('text')
-    if not text:
-        return 'No text provided', 400
-    incoming_hash = hash_clip(data=text)
+    datatype = request.form.get('type')
+    data = request.form.get('data')
+    if not datatype or not data:
+        return 'Invalid data request', 400
+    
+    # Data decoding
+    if datatype == 'image':
+        img = http_to_image(data)
+        incoming_hash = hash_clip('image', image_to_bytes(img))
+    elif datatype == 'text':
+        img = None
+        incoming_hash = hash_clip('text', data)
+    else:
+        return f"Invalid data type '{datatype}'", 400
+    
+    # Data deduplication
     if last_hash is not None and incoming_hash == last_hash:
         return 'Duplicate hash', 200
     
     # Copy clipboard data
-    pyperclip.copy(text)
+    if img:
+        pyperclipimg.copy(img)
+    else:
+        pyperclip.copy(data)
+    
+    # Update hash
     with lock:
         last_hash = incoming_hash
+    
     return 'Successful copy', 200
 
 def client(remote_ip: str, remote_port: int) -> None:
@@ -72,23 +138,42 @@ def client(remote_ip: str, remote_port: int) -> None:
     '''
     # Initialize clipboard hash to account for current clipboard
     global last_hash
-    text = pyperclip.paste()
-    last_hash = hash_clip(text)
+    img = ImageGrab.grabclipboard()
+    if img:
+        buf = image_to_bytes(img)
+        data = bytes_to_http(buf)
+        datatype = 'image'
+        last_hash = hash_clip(datatype, buf)
+    else:
+        data = pyperclip.paste()
+        datatype = 'text'
+        last_hash = hash_clip(datatype, data)
 
     # Exponential back off
     connection_attempts = 0
 
     while True:
-        # Clipbaord deduplication
-        text = pyperclip.paste()
-        clip_hash = hash_clip(data=text)
+        # Grab clipboard data
+        img = ImageGrab.grabclipboard()
+        if img:
+            buf = image_to_bytes(img)
+            data = bytes_to_http(buf)
+            datatype = 'image'
+            clip_hash = hash_clip(datatype, buf)
+        else:
+            data = pyperclip.paste()
+            datatype = 'text'
+            clip_hash = hash_clip(datatype, data)
+
+        # Data deduplication
         if last_hash is None or clip_hash != last_hash:
             try:
                 # Send the clipboard data to the remote server
                 r = requests.post(f'http://{remote_ip}:{remote_port}/clipboard/', headers={
                     'XAuth': os.getenv('P2PC_TOKEN'),
                 }, data={
-                    'text': text,
+                    'type': datatype,
+                    'data': data,
                 }, timeout=3)
 
                 if r.status_code == 200:
